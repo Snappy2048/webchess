@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web Chess</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #f7f3ef;
+      font-family: Arial, sans-serif;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+    }
+
+    .game-container {
+      display: flex;
+      gap: 30px;
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    input, button, select {
+      padding: 6px 10px;
+      font-size: 16px;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 80px);
+      grid-template-rows: repeat(8, 80px);
+      border: 3px solid #333;
+      width: 640px;
+      height: 640px;
+    }
+
+    .square {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      font-weight: bold;
+    }
+
+    .light {
+      background-color: #f0d9b5;
+    }
+
+    .dark {
+      background-color: #b58863;
+    }
+
+    .dot {
+      width: 16px;
+      height: 16px;
+      background-color: rgba(0, 0, 0, 0.3);
+      border-radius: 50%;
+    }
+
+    #sidebar {
+      width: 300px;
+      height: 640px;
+      background: #ffffff;
+      border: 2px solid #333;
+      border-radius: 6px;
+      overflow-y: auto;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+
+    #sidebar h3 {
+      text-align: center;
+      margin-top: 0;
+      border-bottom: 2px solid #444;
+      padding-bottom: 5px;
+    }
+
+    #playerName {
+      width: 160px;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>♟️ Web Chess</h2>
+
+  <div class="controls">
+    <label for="playerName">Your Name:</label>
+    <input type="text" id="playerName" placeholder="Enter your name" />
+    <button id="startBtn">Start Game</button>
+    <label for="difficulty">Difficulty:</label>
+    <select id="difficulty">
+      <option value="easy">Easy</option>
+      <option value="medium" selected>Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+  </div>
+
+  <div class="game-container">
+    <div id="board"></div>
+
+    <div id="sidebar">
+      <h3>Game Log</h3>
+      <div id="logContent">Loading logs...</div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
