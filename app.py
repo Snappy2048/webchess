@@ -4,6 +4,7 @@ import chess.engine
 import random
 import datetime
 import os
+import platform
 
 app = Flask(__name__)
 
@@ -11,13 +12,16 @@ app = Flask(__name__)
 board = chess.Board()
 player_name = None
 
-# Path to store all game results
-RESULTS_PATH = r"C:\Users\aadit\OneDrive\Desktop\webchess\results.txt"
+# ✅ Cross-platform results path
+if os.name == "nt":
+    RESULTS_PATH = r"C:\Users\aadit\OneDrive\Desktop\webchess\results.txt"
+else:
+    RESULTS_PATH = "/tmp/results.txt"  # Render safe temporary folder
 
 
 @app.route("/")
 def index():
-    """Serve the main web page."""
+    """Serve main page."""
     return render_template("index.html")
 
 
@@ -34,7 +38,7 @@ def get_state():
 
 @app.route("/start", methods=["POST"])
 def start_game():
-    """Start a new chess game and set player name."""
+    """Start a new game with player name."""
     global board, player_name
     board = chess.Board()
     data = request.get_json() or {}
@@ -49,7 +53,7 @@ def start_game():
 
 @app.route("/valid_moves/<square>")
 def valid_moves(square):
-    """Return all valid moves from a given square."""
+    """Return valid moves for given square."""
     try:
         sq = chess.parse_square(square)
         moves = [m.uci() for m in board.legal_moves if m.from_square == sq]
@@ -61,7 +65,7 @@ def valid_moves(square):
 
 @app.route("/player_move", methods=["POST"])
 def player_move():
-    """Handle player's move and make AI move."""
+    """Handle player's move, then AI's."""
     data = request.get_json()
     move_uci = data.get("move", "")
     difficulty = data.get("difficulty", "medium")
@@ -77,61 +81,60 @@ def player_move():
         print("Move error:", e)
         return jsonify({"status": "error", "fen": board.fen()})
 
-    # If player wins or draw
+    # Player finishes game
     if board.is_game_over():
         result = get_result_text(player, difficulty)
         log_result(result)
-        return jsonify({
-            "status": "finished",
-            "result": result,
-            "fen": board.fen()
-        })
+        return jsonify({"status": "finished", "result": result, "fen": board.fen()})
 
     # --- AI Move ---
-    if not board.is_game_over():
-        ai_move = get_ai_move(difficulty)
-        if ai_move:
-            board.push(ai_move)
-            print(f"AI ({difficulty}) played: {ai_move.uci()}")
+    ai_move = get_ai_move(difficulty)
+    if ai_move:
+        board.push(ai_move)
+        print(f"AI ({difficulty}) played: {ai_move.uci()}")
 
-    # If AI wins or draw
+    # AI finishes game
     if board.is_game_over():
         result = get_result_text(player, difficulty)
         log_result(result)
-        return jsonify({
-            "status": "finished",
-            "result": result,
-            "fen": board.fen()
-        })
+        return jsonify({"status": "finished", "result": result, "fen": board.fen()})
 
     return jsonify({"status": "ok", "fen": board.fen()})
 
 
 def get_ai_move(level="medium"):
-    """Generate an AI move using Stockfish or fallback to random."""
+    """
+    Generate AI move.
+    - On Windows local machine: use Stockfish.
+    - On Render/Linux: fallback to random for instant response.
+    """
     global board
-    # Update this path to your actual Stockfish executable
-    engine_path = r"C:\Users\aadit\OneDrive\Desktop\webchess\stockfish-windows-x86-64-avx2.exe"
+    import random
 
-    levels = {
-        "easy": 0.1,    # 100 ms think time
-        "medium": 0.5,  # 500 ms
-        "hard": 1.5     # 1.5 s
-    }
+    is_windows = (os.name == "nt")
+    on_render = os.environ.get("RENDER", "") != "" or platform.system() == "Linux"
+
+    levels = {"easy": 0.1, "medium": 0.5, "hard": 1.5}
     think_time = levels.get(level, 0.5)
 
-    try:
-        with chess.engine.SimpleEngine.popen_uci(engine_path) as engine:
-            result = engine.play(board, chess.engine.Limit(time=think_time))
-            return result.move
-    except Exception as e:
-        print("Engine error:", e)
-        legal_moves = list(board.legal_moves)
-        return random.choice(legal_moves) if legal_moves else None
+    # ✅ Stockfish only on local Windows
+    if is_windows and not on_render:
+        engine_path = r"C:\Users\aadit\OneDrive\Desktop\webchess\stockfish-windows-x86-64-avx2.exe"
+        try:
+            if os.path.exists(engine_path):
+                with chess.engine.SimpleEngine.popen_uci(engine_path) as engine:
+                    result = engine.play(board, chess.engine.Limit(time=think_time))
+                    return result.move
+        except Exception as e:
+            print("Stockfish error, using random:", e)
+
+    # ✅ Render fallback — instant random legal move
+    legal_moves = list(board.legal_moves)
+    return random.choice(legal_moves) if legal_moves else None
 
 
 def get_result_text(player, difficulty):
-    """Build a formatted game summary."""
+    """Format game result info."""
     result = board.result()
     status = (
         "White wins" if result == "1-0" else
@@ -150,19 +153,19 @@ def get_result_text(player, difficulty):
 
 
 def log_result(result_text):
-    """Append result text to results.txt file."""
+    """Append result to results.txt (cross-platform safe)."""
     try:
         os.makedirs(os.path.dirname(RESULTS_PATH), exist_ok=True)
         with open(RESULTS_PATH, "a", encoding="utf-8") as f:
             f.write(result_text)
-        print("Result saved to:", RESULTS_PATH)
+        print(f"Result saved to: {RESULTS_PATH}")
     except Exception as e:
-        print("Error writing results file:", e)
+        print("Error writing results:", e)
 
 
 @app.route("/logs")
 def get_logs():
-    """Return results.txt content for sidebar display."""
+    """Return log file contents."""
     try:
         if not os.path.exists(RESULTS_PATH):
             return "No game logs yet."
@@ -173,4 +176,5 @@ def get_logs():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # ✅ Allow LAN / Render connections
+    app.run(host="0.0.0.0", port=5000, debug=True)
